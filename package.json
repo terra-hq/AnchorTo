@@ -1,14 +1,14 @@
 {
-  "name": "@terrahq/counter",
+  "name": "@terrahq/anchor-to",
   "private": false,
   "version": "0.0.01",
   "type": "module",
-  "main":"./dist/Counter.umd.js",
-  "module": "./dist/Counter.es.js",
+  "main":"./dist/AnchorTo.umd.js",
+  "module": "./dist/AnchorTo.es.js",
   "exports":{
     ".": {
-      "import": "./dist/Counter.es.js",
-      "require": "./dist/Counter.umd.cjs"
+      "import": "./dist/AnchorTo.es.js",
+      "require": "./dist/AnchorTo.umd.cjs"
     }
   },
   "scripts": {
