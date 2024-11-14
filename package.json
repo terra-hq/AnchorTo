@@ -1,0 +1,26 @@
+{
+  "name": "@terrahq/counter",
+  "private": false,
+  "version": "0.0.01",
+  "type": "module",
+  "main":"./dist/Counter.umd.js",
+  "module": "./dist/Counter.es.js",
+  "exports":{
+    ".": {
+      "import": "./dist/Counter.es.js",
+      "require": "./dist/Counter.umd.cjs"
+    }
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "sass": "^1.80.6",
+    "vite": "^5.4.10"
+  },
+  "dependencies": {
+    "gsap": "^3.12.5"
+  }
+}
