@@ -1,73 +1,90 @@
-# Counter
+# AnchorTo Class
 
-`Counter` is a JavaScript class for animating a numeric counter that starts when scrolled into view. It uses GSAP and ScrollTrigger to animate a number from an initial to a final value with customizable options.
+The `AnchorTo` class enables smooth scrolling between elements on a webpage. It provides options for configuring scroll speed, offset, URL updates, debugging, and custom event emissions. Ideal for Single Page Applications (SPAs) and sites requiring a smooth scrolling experience.
+
+## Installation
+
+```bash
+npm install terrahq/anchor-to
+```
 
 ## Usage Example
 
 ```javascript
-import Counter from '@terrahq/counter';
+import AnchorTo from 'terrahq/anchor-to';
 
-const counter = new Counter({
-    element: document.querySelector(".counter-element"),
-    endValue: 5000,               // The final value of the counter
-    duration: 2,                  // Duration of the animation in seconds
-    separator: ".",               // Thousands separator (optional)
-    start: "top center",          // ScrollTrigger start position (optional)
-    debug: true,                  // Display ScrollTrigger markers (optional, now called debug)
-    easing: "power1.out",         // Easing of the animation (optional)
-    autoPlay: true,               // Start animation on scroll (optional)
-    playOnce: true,               // Run animation only once (optional)
-    onComplete: () => console.log("Counter animation complete!") // Callback on animation complete
+const anchor = new AnchorTo({
+    trigger: document.querySelector('.my-button'),      // The button that triggers scrolling
+    destination: document.querySelector('#section4'),   // The target element to scroll to
+    offset: 50,                                         // Offset in pixels or a function for dynamic offset
+    url: 'hash',                                        // URL behavior: 'hash', 'query', or 'none'
+    speed: 500,                                         // Scroll speed in milliseconds
+    emitEvents: true,                                   // Emits start and end events for custom listeners
+    popstate: true,                                     // Supports browser back/forward navigation
+    debug: true,                                        // Enables console debug output
+    onComplete: () => console.log('Scroll complete!')   // Callback executed after scroll ends
 });
-
-// Additional methods
-counter.play();      // Start the animation manually
-counter.update();    // Update the ScrollTrigger position
-counter.destroy();   // Clean up the instance and stop animations
 ```
 
 
-###  Constructor Parameters
-- element (HTMLElement, required): The HTML element that will display the animated number.
-- endValue (Number, optional): The end value for the counter animation. Default is 1000.
-- duration (Number, optional): Duration of the animation in seconds. Default is 2.
-- separator (String, optional): Thousands separator in the number animation. Default is ",".
-- start (String, optional): ScrollTrigger start position. Default is "top top".
-- debug (Boolean, optional): Show ScrollTrigger markers for debugging. Default is false.
-- easing (String, optional): Type of GSAP easing for the animation. Default is "power1.out".
-- autoPlay (Boolean, optional): If true, the animation starts on reaching the start ScrollTrigger point. Default is false.
-- playOnce (Boolean, optional): If true, the animation runs only once. Default is false.
-- onComplete (Function, optional): Callback function executed when the counter animation completes.
+###  Options
+- trigger `{HTMLElement}` - The element that triggers the scroll when clicked.
+- destination `{HTMLElement}` - The target element to scroll to.
+- offset `{number | function}` - Distance from the target. Can be a static number or a function that receives destination and trigger as parameters.
+- url `{string}` - Determines URL behavior:
+   - : Adds the destination's id as a hash in the URL.
+  - 'query': Adds the destination's id as a query parameter.
+  - 'none': No URL update.
+
+- speed `{number}` - Duration of scroll animation in milliseconds (default is 1500).
+- emitEvents `{boolean}` - Emits custom events anchorToStart and anchorToEnd during scroll.
+- popstate `{boolean}` - Enables scroll behavior for back/forward navigation.
+- debug `{boolean}` - If true, logs configuration and instance properties to the console.
+- onComplete `{function}` - A callback function executed when the scroll animation completes.
+
+
 
 # Methods
-- play(): Manually starts the counter animation.
-- destroy(): Cleans up ScrollTrigger and stops the animation, freeing resources.
-- update(): Updates the ScrollTrigger position by recalculating its starting point.
 
-<br>
-<br>
-<br>
+## scrollTo(element)
+Triggers a scroll animation to the specified element.
 
-# Examples
 
-## html
-```html
-<div class="counter counter-element">
-    1
-</div>
-```
-## Javascript
+
 ```js
-const counter = new Counter({
-    element: document.querySelector(".counter-element"),
-    endValue: 5000,   // The final value of the counter
-    duration: 2,      // Duration of the animation in seconds
-    separator: ".",   // Thousands separator (optional)
-    start: "top center",  // ScrollTrigger start position (optional)
-    debug: true,   // Display ScrollTrigger markers (optional, now called debug)
-    easing: "power1.out", // Easing of the animation (optional)
-    autoPlay: true,  // Start animation on scroll (optional)
-    playOnce: true,  // Run animation only once (optional)
-    onComplete: () => console.log("Counter animation complete!") // Callback on animation complete
+// Manually trigger the scroll to the destination element
+anchor.scrollTo(anchor.DOM.destination);
+```
+
+## destroy
+Removes event listeners on the trigger and window, cleaning up the instance.
+
+
+```js
+// Removes the click and popstate event listeners
+anchor.destroy();
+```
+
+## emitEvents
+
+With emitEvents enabled, AnchorTo dispatches custom events:
+
+- AnchorToStart - Emitted when the scroll animation begins.
+- AnchorToEnd - Emitted when the scroll animation completes.
+- These events allow additional customization through external listeners.
+
+```js
+const anchor = new AnchorTo({
+    trigger: document.querySelector('.my-button'),
+    destination: document.querySelector('#section4'),
+    emitEvents: true
+});
+
+anchor.DOM.trigger.addEventListener('AnchorToStart', (event) => {
+    console.log('Scrolling has started!', event.detail.element);
+});
+
+anchor.DOM.trigger.addEventListener('AnchorToEnd', (event) => {
+    console.log('Scrolling has ended!', event.detail.element);
 });
 ```
