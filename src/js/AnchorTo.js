@@ -35,7 +35,10 @@
  *                                              to respond to the start and end of the scroll animation.
  * @param {boolean} [options.popstate=true] - If `true`, enables smooth scrolling when the browser's forward and back navigation buttons are used.
  * @param {boolean} [options.debug=false] - If `true`, outputs debug information to the console, including the initialized properties.
+ * @param {function} [options.beforeScroll=null] - A callback function executed before the scroll animation starts.
  * @param {function} [options.onComplete=null] - A callback function executed after the scroll animation completes.
+ * @param {function} [options.heightModifyingLibraries] - TERRA EXCLUSIVE - Used to manage libraries that modify page height
+ * @param {function} [options.Manager] - TERRA EXCLUSIVE - Library Manager from the Terra Framework
  *
  * Methods:
  * - init(): Initializes the class and assigns necessary event listeners.
@@ -45,147 +48,237 @@
  * - scrollTo(element): Executes the scroll animation to the destination element. Public method for external use.
  * - ease(t, b, c, d): Easing function to smoothen the scroll animation.
  * - emitEvent(name): Emits a custom event on `trigger` at the beginning and end of the scroll.
+ * - waitForHeightModifyingLibraries(): Returns a promise that checks if the libraries that modify page height are instanced yet.
  * - destroy(): Removes the `click` and `popstate` event listeners. Public method for external cleanup.
  */
 
 class AnchorTo {
-	constructor({
-		trigger,
-		destination,
-		offset = 0,
-		url = 'hash',
-		speed = 1500,
-		emitEvents = true,
-		popstate = true,
-		debug = false,                   // New debug option
-		onComplete = null                // New callback for scroll completion
-	}) {
-		this.DOM = {
-			trigger: trigger,
-			destination: destination,
-		};
-		this.offset = typeof offset === 'function' ? offset : () => offset;
-		this.url = url;
-		this.speed = speed;
-		this.emitEvents = emitEvents;
-		this.popstate = popstate;
-		this.debug = debug;
-		this.onComplete = onComplete;    // Store the callback
+    constructor({
+        trigger,
+        destination,
+        destinationSelector = "",
+        offset = 0,
+        url = "hash",
+        speed = 1500,
+        emitEvents = true,
+        popstate = true,
+        debug = false,
+        onComplete = null, // New callback for scroll completion
+        beforeScroll = null, // Callback to execute before scrolling
+        heightModifyingLibraries = [],
+        Manager = null,
+    }) {
+        this.DOM = {
+            trigger: trigger,
+            destination: destination,
+        };
+        this.offset = typeof offset === "function" ? offset : () => offset;
+        this.url = url;
+        this.speed = speed;
+        this.emitEvents = emitEvents;
+        this.popstate = popstate;
+        this.debug = debug;
+        this.onComplete = onComplete;
+        this.beforeScroll = beforeScroll;
+        this.destinationSelector = destinationSelector;
+        this.heightModifyingLibraries = heightModifyingLibraries;
+        this.Manager = Manager;
 
-		// Initialization
-		this.init();
-		this.events();
+        // Initialization
+        this.init();
+        this.events();
 
-		// Debugging information if debug is true
-		if (this.debug) {
-			console.log('AnchorTo Initialized:', {
-				trigger: this.DOM.trigger,
-				destination: this.DOM.destination,
-				offset: this.offset(this.DOM.destination, this.DOM.trigger),
-				url: this.url,
-				speed: this.speed,
-				emitEvents: this.emitEvents,
-				popstate: this.popstate,
-			});
-		}
-	}
+        // Debugging information if debug is true
+        if (this.debug) {
+            console.log("AnchorTo Initialized:", {
+                trigger: this.DOM.trigger,
+                destination: this.DOM.destination,
+                offset: this.offset(this.DOM.destination, this.DOM.trigger),
+                url: this.url,
+                speed: this.speed,
+                emitEvents: this.emitEvents,
+                popstate: this.popstate,
+            });
+        }
+    }
 
-	init() {}
+    init() {}
 
-	events() {
-		if (this.DOM.trigger) {
-			this.DOM.trigger.addEventListener('click', (event) => this.handleClick(event));
-		}
+    events() {
+        if (this.DOM.trigger) {
+            this.DOM.trigger.addEventListener("click", (event) => this.handleClick(event));
+        }
 
-		if (this.popstate) {
-			window.addEventListener('popstate', (event) => this.handlePopstate(event));
-		}
-	}
+        if (this.popstate) {
+            window.addEventListener("popstate", (event) => this.handlePopstate(event));
+        }
+    }
 
-	handleClick(event) {
-		event.preventDefault();
-		this.scrollTo(this.DOM.destination);
+    async handleClick(event) {
+        event.preventDefault();
 
-		if (this.url !== 'none') {
-			const targetID = this.DOM.destination.id || 'section';
-			if (this.url === 'hash') {
-				history.pushState(null, null, `#${targetID}`);
-			} else if (this.url === 'query') {
-				const params = new URLSearchParams(window.location.search);
-				params.set('scrollto', targetID);
-				history.pushState(null, null, `${window.location.pathname}?${params}`);
-			}
-		}
+        if (typeof this.beforeScroll === "function") {
 
-		if (this.emitEvents) {
-			this.emitEvent('AnchorToStart');
-		}
-	}
+            // Wait for any async operation in beforeScroll to end
+            await this.beforeScroll();
 
-	handlePopstate() {
-		const destinationID = this.url === 'query'
-			? new URLSearchParams(window.location.search).get('scrollto')
-			: window.location.hash.substring(1);
+            // Wait for height-modifying libraries to be loaded
+            await this.waitForHeightModifyingLibraries();
 
-		const destinationElement = document.getElementById(destinationID);
+            // Re-query the destination element after libraries are loaded
+            this.DOM.destination = document.getElementById(this.destinationSelector);
+        }
 
-		if (destinationElement) {
-			this.scrollTo(destinationElement);
-		}
-	}
+        // Emit start event before scrolling
+        if (this.emitEvents) {
+            this.emitEvent("AnchorToStart");
+        }
 
-	scrollTo(element) {
-		const startPosition = window.pageYOffset;
-		const targetPosition = element.getBoundingClientRect().top + window.pageYOffset - this.offset(element, this.DOM.trigger);
-		const distance = targetPosition - startPosition;
-		const duration = this.speed;
+        // Now scroll to the updated destination
+        this.scrollTo(this.DOM.destination);
 
-		let startTime = null;
+        // Update URL after starting the scroll
+        if (this.url !== "none") {
+            const targetID = this.DOM.destination.id || "section";
+            if (this.url === "hash") {
+                history.pushState(null, null, `#${targetID}`);
+            } else if (this.url === "query") {
+                const params = new URLSearchParams(window.location.search);
+                params.set("scrollto", targetID);
+                history.pushState(null, null, `${window.location.pathname}?${params}`);
+            }
+        }
+    }
 
-		const animation = (currentTime) => {
-			if (!startTime) startTime = currentTime;
-			const timeElapsed = currentTime - startTime;
-			const run = this.ease(timeElapsed, startPosition, distance, duration);
+    handlePopstate() {
+        const destinationID =
+            this.url === "query"
+                ? new URLSearchParams(window.location.search).get("scrollto")
+                : window.location.hash.substring(1);
 
-			window.scrollTo(0, run);
+        const destinationElement = document.getElementById(destinationID);
 
-			if (timeElapsed < duration) {
-				requestAnimationFrame(animation);
-			} else {
-				if (this.emitEvents) {
-					this.emitEvent('AnchorToEnd');
-				}
-				// Execute the onComplete callback, if provided
-				if (typeof this.onComplete === 'function') {
-					this.onComplete();
-				}
-			}
-		};
+        if (destinationElement) {
+            this.scrollTo(destinationElement);
+        }
+    }
 
-		requestAnimationFrame(animation);
-	}
+    scrollTo(element) {
+        const startPosition = window.pageYOffset;
+        const targetPosition =
+            element.getBoundingClientRect().top + window.pageYOffset - this.offset(element, this.DOM.trigger);
+        const distance = targetPosition - startPosition;
+        const duration = this.speed;
 
-	ease(t, b, c, d) {
-		t /= d / 2;
-		if (t < 1) return c / 2 * t * t + b;
-		t--;
-		return -c / 2 * (t * (t - 2) - 1) + b;
-	}
+        let startTime = null;
 
-	emitEvent(name) {
-		const event = new CustomEvent(name, { detail: { element: this.DOM.trigger } });
-		this.DOM.trigger.dispatchEvent(event);
-	}
+        const animation = (currentTime) => {
+            if (!startTime) startTime = currentTime;
+            const timeElapsed = currentTime - startTime;
+            const run = this.ease(timeElapsed, startPosition, distance, duration);
 
-	destroy() {
-		if (this.DOM.trigger) {
-			this.DOM.trigger.removeEventListener('click', (event) => this.handleClick(event));
-		}
+            window.scrollTo(0, run);
 
-		if (this.popstate) {
-			window.removeEventListener('popstate', (event) => this.handlePopstate(event));
-		}
-	}
+            if (timeElapsed < duration) {
+                requestAnimationFrame(animation);
+            } else {
+                if (this.emitEvents) {
+                    this.emitEvent("AnchorToEnd");
+                }
+                // Execute the onComplete callback, if provided
+                if (typeof this.onComplete === "function") {
+                    this.onComplete();
+                }
+            }
+        };
+
+        requestAnimationFrame(animation);
+    }
+
+    /**
+     * Waits for all height-modifying libraries to be loaded before proceeding with scroll
+     * @returns {Promise} Promise that resolves when all libraries are loaded or timeout is reached
+     */
+    waitForHeightModifyingLibraries() {
+        return new Promise((resolve) => {
+            // If no height-modifying libraries are registered, resolve immediately
+            if (this.heightModifyingLibraries.length === 0) {
+                this.debug && console.log("No height-modifying libraries registered");
+                resolve();
+                return;
+            }
+
+            // If no Manager instance provided, resolve immediately
+            if (!this.Manager) {
+                this.debug && console.log("No Manager instance provided, proceeding with scroll");
+                resolve();
+                return;
+            }
+
+            let checkCount = 0;
+            const maxChecks = 20; // Maximum 1 second wait (20 * 50ms)
+
+            const checkLibrariesLoaded = () => {
+                checkCount++;
+
+                // Filter libraries that are actually loaded in Manager.libraries
+                const availableLibraries = this.heightModifyingLibraries.filter(
+                    (libName) => this.Manager.libraries[libName]
+                );
+
+                // If no libraries are available in Manager.libraries, resolve immediately
+                if (availableLibraries.length === 0) {
+                    this.debug &&
+                        console.log(
+                            "No height-modifying libraries available in Manager.libraries, proceeding with scroll"
+                        );
+                    resolve();
+                    return;
+                }
+
+                // Check if all available height-modifying libraries have instances
+                const allLoaded = availableLibraries.every(
+                    (libName) => this.Manager.instances[libName] && this.Manager.instances[libName].length > 0
+                );
+
+                if (allLoaded) {
+                    resolve();
+                } else if (checkCount >= maxChecks) {
+                    this.debug &&
+                        console.warn("Timeout waiting for height-modifying libraries, proceeding with scroll");
+                    resolve();
+                } else {
+                    // Check again after a short delay
+                    setTimeout(checkLibrariesLoaded, 50);
+                }
+            };
+
+            // Start checking for library completion
+            setTimeout(checkLibrariesLoaded, 100);
+        });
+    }
+
+    ease(t, b, c, d) {
+        t /= d / 2;
+        if (t < 1) return (c / 2) * t * t + b;
+        t--;
+        return (-c / 2) * (t * (t - 2) - 1) + b;
+    }
+
+    emitEvent(name) {
+        const event = new CustomEvent(name, { detail: { element: this.DOM.trigger } });
+        this.DOM.trigger.dispatchEvent(event);
+    }
+
+    destroy() {
+        if (this.DOM.trigger) {
+            this.DOM.trigger.removeEventListener("click", (event) => this.handleClick(event));
+        }
+
+        if (this.popstate) {
+            window.removeEventListener("popstate", (event) => this.handlePopstate(event));
+        }
+    }
 }
 
 export default AnchorTo;
