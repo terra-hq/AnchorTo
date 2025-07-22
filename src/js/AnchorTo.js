@@ -106,7 +106,11 @@ class AnchorTo {
 
     events() {
         if (this.DOM.trigger) {
-            this.DOM.trigger.addEventListener("click", (event) => this.handleClick(event));
+            if(this.DOM.trigger.tagName === 'SELECT') {
+                this.DOM.trigger.addEventListener('change', (event) => this.handleSelectChange(event))
+            } else {
+                this.DOM.trigger.addEventListener("click", (event) => this.handleClick(event));
+            }
         }
 
         if (this.popstate) {
@@ -114,9 +118,8 @@ class AnchorTo {
         }
     }
 
-    async handleClick(event) {
-        event.preventDefault();
 
+    async handleScroll() {
         if (typeof this.beforeScroll === "function") {
 
             // Wait for any async operation in beforeScroll to end
@@ -148,6 +151,20 @@ class AnchorTo {
                 history.pushState(null, null, `${window.location.pathname}?${params}`);
             }
         }
+    }
+
+    async handleClick(event) {
+        event.preventDefault();
+
+        this.handleScroll();
+    }
+
+    async handleSelectChange(event) {
+        const value = event.target.value;
+
+        this.destinationSelector = value;
+        this.DOM.destination = document.getElementById(this.destinationSelector);
+        this.handleScroll();
     }
 
     handlePopstate() {
