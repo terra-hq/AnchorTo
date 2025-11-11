@@ -1,7 +1,7 @@
 {
   "name": "@terrahq/anchor-to",
   "private": false,
-  "version": "0.0.04",
+  "version": "0.0.5",
   "type": "module",
   "main":"./dist/AnchorTo.umd.js",
   "module": "./dist/AnchorTo.es.js",
